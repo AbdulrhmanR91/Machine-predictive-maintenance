@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Caveat:wght@400..700&display=swap"
+      rel="stylesheet"
+    />
+    <title>Predictive Maintenance</title>
+    <link rel="stylesheet" href="../static/style.css" />
+  </head>
+  <body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+      <img src="../static/logo.svg" alt="Nokia Logo" class="logo" />
+      <p class="navbar-text">
+        At Nokia, we create technology that helps the world act together.
+      </p>
+    </nav>
+
+    <div class="container">
+      <h1>Predictive Maintenance</h1>
+      <form id="predictionForm">
+        <label for="Type">Type:</label>
+        <input type="text" id="Type" name="Type" list="typeOptions" required />
+        <datalist id="typeOptions">
+          <option value="H"></option>
+          <option value="L"></option>
+          <option value="M"></option>
+        </datalist>
+
+        <label for="Air_temp_C">Air temperature [C]:</label>
+        <input
+          type="number"
+          step="any"
+          id="Air_temp_C"
+          name="Air_temp_C"
+          required
+        />
+
+        <label for="Process_temp_C">Process temperature [C]:</label>
+        <input
+          type="number"
+          step="any"
+          id="Process_temp_C"
+          name="Process_temp_C"
+          required
+        />
+
+        <label for="Rot_speed">Rotational speed [rpm]:</label>
+        <input
+          type="number"
+          step="any"
+          id="Rot_speed"
+          name="Rot_speed"
+          required
+        />
+
+        <label for="Torque">Torque [Nm]:</label>
+        <input
+          type="number"
+          step="any"
+          id="Torque"
+          name="Torque"
+          required
+        />
+
+        <label for="Tool_wear">Tool wear [min]:</label>
+        <input
+          type="number"
+          step="any"
+          id="Tool_wear"
+          name="Tool_wear"
+          required
+        />
+
+        <button type="submit">Predict</button>
+      </form>
+
+      <div id="result">
+        <h3 id="typewriterTitle"></h3>
+        <p id="failureType"></p>
+        <p id="probability"></p>
+        <h3 id="detailedTitle"></h3> 
+        <ul id="detailedProbabilities"></ul>
+      </div>
+    </div>
+
+    <script>
+      document
+        .getElementById("predictionForm")
+        .addEventListener("submit", function (event) {
+          event.preventDefault();
+
+          const formData = new FormData(this);
+          const data = Object.fromEntries(formData.entries());
+
+          // Clear previous results
+          clearResults();
+
+          fetch("/predict", {
+            method: "POST",
+            body: new URLSearchParams(data),
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          })
+            .then((response) => response.json())
+            .then((result) => {
+              // Display prediction results
+              const failureType = "Failure Type: " + result.prediction;
+              const probability = "Probability: " + result.probability;
+              const detailedTitle = "Detailed Probabilities:";
+
+              // Apply typewriter effect sequentially for titles and probabilities
+              typeWriter(
+                document.getElementById("failureType"),
+                failureType,
+                100
+              )
+                .then(() =>
+                  typeWriter(
+                    document.getElementById("probability"),
+                    probability,
+                    100
+                  )
+                )
+                .then(() =>
+                  typeWriter(
+                    document.getElementById("detailedTitle"),
+                    detailedTitle,
+                    100
+                  )
+                )
+                .then(() => {
+                  // After showing the titles, apply typewriter effect on detailed probabilities
+                  const detailedProbabilities = result.detailed_probabilities;
+                  displayDetailedProbabilities(detailedProbabilities);
+                });
+            })
+            .catch((error) => console.error("Error:", error));
+        });
+
+      // Clear the previous results
+      function clearResults() {
+        document.getElementById("failureType").innerHTML = "";
+        document.getElementById("probability").innerHTML = "";
+        document.getElementById("detailedTitle").innerHTML = "";
+        document.getElementById("detailedProbabilities").innerHTML = "";
+      }
+
+      // Typewriter Effect Function
+      function typeWriter(element, text, speed) {
+        return new Promise((resolve) => {
+          let i = 0;
+          function type() {
+            if (i < text.length) {
+              element.innerHTML += text.charAt(i);
+              i++;
+              setTimeout(type, speed);
+            } else {
+              resolve(); // Resolve the promise when done
+            }
+          }
+          type();
+        });
+      }
+
+      // Function to display detailed probabilities with typewriter effect
+      function displayDetailedProbabilities(detailedProbabilities) {
+        const detailedList = document.getElementById("detailedProbabilities");
+        const entries = Object.entries(detailedProbabilities);
+
+        // Iterate over the detailed probabilities and apply typewriter effect to each
+        entries.reduce((promise, [failureType, prob]) => {
+          const listItem = document.createElement("li");
+          detailedList.appendChild(listItem);
+          return promise.then(() => {
+            const text = `${failureType}: ${prob.toFixed(2)}%`;
+            return typeWriter(listItem, text, 100);
+          });
+        }, Promise.resolve());
+      }
+
+      // Initialize the title on page load
+      document.addEventListener("DOMContentLoaded", function () {
+        const typewriterTitle = document.getElementById("typewriterTitle");
+        typeWriter(typewriterTitle, "Prediction Result", 100);
+      });
+    </script>
+  </body>
+</html>
